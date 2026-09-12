@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Primera Petición GET</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    h1, h2 {
+      color: #0056b3;
+    }
+    .seccion {
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+    img {
+      max-width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      display: block;
+      margin: 10px 0;
+    }
+    code {
+      background-color: #eee;
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    ul {
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Reporte: Primera Petición GET</h1>
+
+  <div class="seccion">
+    <h2>1. Captura de pantalla de la respuesta</h2>
+    <!-- Cambia 'captura.png' por la ruta o nombre de tu imagen -->
+    <img src="./img/CodigoRespuesta.png" alt="Captura de consola con respuesta de la API">
+  </div>
+
+  <div class="seccion">
+    <h2>2. Explicación del proceso y resultado</h2>
+    <p><strong>¿Se conectó?</strong><br>
+    Sí, la conexión con el servidor en <code>https://proyectobackcecyt9.onrender.com</code> fue exitosa mediante el protocolo HTTPS sobre TCP.</p>
+
+    <p><strong>¿Qué pasó?</strong><br>
+    Se ejecutó un script en Node.js que envió una petición asíncrona mediante <code>fetch</code> a la ruta <code>/api/talleres</code>. El servidor procesó la solicitud y devolvió una respuesta con los datos solicitados en formato JSON.</p>
+
+    <p><strong>Elementos obtenidos:</strong><br>
+    Se recibió un arreglo con 3 objetos correspondientes a talleres registrados:</p>
+    <ul>
+      <li><strong>Introducción a Python</strong> - Instructor: Ing. María López (Cupo: 25)</li>
+      <li><strong>Fundamentos de Redes</strong> - Instructor: Ing. Carlos Ramírez (Cupo: 30)</li>
+      <li><strong>Diseño de Bases de Datos</strong> - Instructor: Ing. Ana Torres (Cupo: 20)</li>
+    </ul>
+  </div>
+
+</body>
+</html>
