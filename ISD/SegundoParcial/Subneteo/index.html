@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subneteo IPv4 · Serrano Jiménez Kiroshi</title>
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+    <header class="encabezado">
+        <h1>Calculadora de Subneteo IPv4</h1>
+        <p>Serrano Jiménez Kiroshi · Conversión a binario, FLSM, VLSM y análisis de direcciones</p>
+    </header>
+
+    <nav class="pestanas" role="tablist">
+        <button class="pestana activa" data-panel="sec-binario" role="tab">Decimal a binario</button>
+        <button class="pestana" data-panel="sec-flsm" role="tab">FLSM</button>
+        <button class="pestana" data-panel="sec-vlsm" role="tab">VLSM</button>
+        <button class="pestana" data-panel="sec-pertenece" role="tab">¿A qué red pertenece?</button>
+    </nav>
+
+    <main>
+        <!-- 1. Decimal a binario -->
+        <section id="sec-binario" class="panel activo">
+            <h2>Convertir un número o una IP a binario</h2>
+            <form id="frm-binario" class="formulario">
+                <label>Número de 0 a 255 o IP completa
+                    <input type="text" id="txt-binario" value="10.45.128.7" autocomplete="off">
+                </label>
+                <button type="submit">Convertir</button>
+            </form>
+            <div id="out-binario"></div>
+        </section>
+
+        <!-- 2. FLSM -->
+        <section id="sec-flsm" class="panel">
+            <h2>FLSM: subredes del mismo tamaño</h2>
+            <form id="frm-flsm" class="formulario">
+                <label>Red base
+                    <input type="text" id="txt-flsm-red" value="192.168.20.0" autocomplete="off">
+                </label>
+                <label>Prefijo o máscara
+                    <input type="text" id="txt-flsm-prefijo" value="/24" autocomplete="off">
+                </label>
+                <label>Calcular por
+                    <select id="sel-flsm-modo">
+                        <option value="subredes">Número de subredes</option>
+                        <option value="hosts">Hosts por subred</option>
+                    </select>
+                </label>
+                <label>Cantidad
+                    <input type="number" id="num-flsm-cantidad" min="1" value="8">
+                </label>
+                <button type="submit">Subnetear</button>
+            </form>
+            <div id="out-flsm"></div>
+        </section>
+
+        <!-- 3. VLSM -->
+        <section id="sec-vlsm" class="panel">
+            <h2>VLSM: a cada área el bloque que necesita</h2>
+            <form id="frm-vlsm" class="formulario">
+                <label>Red base
+                    <input type="text" id="txt-vlsm-red" value="192.168.50.0" autocomplete="off">
+                </label>
+                <label>Prefijo o máscara
+                    <input type="text" id="txt-vlsm-prefijo" value="/24" autocomplete="off">
+                </label>
+                <div class="requerimientos">
+                    <div class="req-titulo"><span>Área</span><span>Hosts</span><span></span></div>
+                    <div id="lista-areas"></div>
+                    <button type="button" id="btn-area" class="secundario">+ Agregar área</button>
+                </div>
+                <button type="submit">Subnetear</button>
+            </form>
+            <div id="out-vlsm"></div>
+        </section>
+
+        <!-- 4. ¿A qué red pertenece? -->
+        <section id="sec-pertenece" class="panel">
+            <h2>Red, rango y broadcast de una IP</h2>
+            <form id="frm-pertenece" class="formulario">
+                <label>Dirección IP
+                    <input type="text" id="txt-ip" value="172.16.77.130" autocomplete="off">
+                </label>
+                <label>Prefijo o máscara
+                    <input type="text" id="txt-ip-prefijo" value="255.255.240.0" autocomplete="off">
+                </label>
+                <button type="submit">Analizar</button>
+            </form>
+            <div id="out-pertenece"></div>
+        </section>
+
+        <section class="ejemplos">
+            <h2>Ejercicios</h2>
+            <div class="botones-ejemplo">
+                <button type="button" class="secundario" data-ejercicio="1">Ejercicio 1 · VLSM 192.168.50.0/24</button>
+                <button type="button" class="secundario" data-ejercicio="2">Ejercicio 2 · VLSM 172.20.0.0/16</button>
+                <button type="button" class="secundario" data-ejercicio="3">Ejercicio 3 · FLSM 10.0.0.0/8 en 16</button>
+            </div>
+        </section>
+    </main>
+
+    <footer>Serrano Jiménez Kiroshi · ISD 2026</footer>
+
+    <script src="./js/ipv4.js"></script>
+    <script src="./js/pagina.js"></script>
+</body>
+</html>
