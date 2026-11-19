@@ -6,6 +6,7 @@ const express = require('express');
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
 const { crearModeloUsuarios } = require('./modelos/usuarios.modelo');
+const { registrarRutasJWT } = require('./rutas-jwt'); // JWT: las rutas están en su propio archivo
 
 const NOMBRE_COOKIE = 'connect.sid';
 
@@ -177,6 +178,9 @@ function crearApp(config, pool) {
       next(error);
     }
   });
+
+  // JWT: se registran antes del 404 de /api para que sí las encuentre.
+  registrarRutasJWT(app, config, pool, usuarios);
 
   app.use(express.static(path.join(__dirname, 'public')));
 

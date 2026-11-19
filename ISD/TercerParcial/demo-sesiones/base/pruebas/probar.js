@@ -260,6 +260,91 @@ async function filasDeSesion(usuario) {
     return r.status === 200;
   });
 
+  // ----- JWT -----
+  // Con JWT no hay frasco de cookies: cada "cliente" solo tiene el token en una variable.
+  const servJWT = await arrancar();
+  const api = async (metodo, ruta, { token, cuerpo, base = servJWT.url } = {}) => {
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (cuerpo) headers['Content-Type'] = 'application/json';
+    const r = await fetch(base + ruta, { method: metodo, headers, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    return { status: r.status, datos: await r.json(), cookie: r.headers.get('set-cookie') };
+  };
+  const tokenDe = async (usuario, base) =>
+    (await api('POST', '/api/jwt/login', { base, cuerpo: { usuario, contrasena: `${usuario}12345` } })).datos.token;
+
+  await prueba('JWT: el login regresa header.payload.firma y no crea cookie', async () => {
+    const r = await api('POST', '/api/jwt/login', { cuerpo: { usuario: 'luis', contrasena: 'luis12345' } });
+    return r.status === 200 && r.datos.token.split('.').length === 3 && !r.cookie;
+  });
+
+  await prueba('JWT: contraseña incorrecta → 401 y sin token', async () => {
+    const r = await api('POST', '/api/jwt/login', { cuerpo: { usuario: 'luis', contrasena: 'nop' } });
+    return r.status === 401 && !r.datos.token;
+  });
+
+  await prueba('JWT: /api/jwt/perfil sin token 401 y con token 200', async () => {
+    const sin = await api('GET', '/api/jwt/perfil');
+    const con = await api('GET', '/api/jwt/perfil', { token: await tokenDe('ana') });
+    return sin.status === 401 && con.status === 200;
+  });
+
+  await prueba('JWT: el payload se lee sin secreto y no trae la contraseña', async () => {
+    const token = await tokenDe('ana');
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+    return payload.usuario === 'ana' && payload.rol === 'alumno' && !('contrasena' in payload) && Boolean(payload.jti);
+  });
+
+  await prueba('JWT: si alguien cambia el payload (rol admin), la firma ya no cuadra → 401', async () => {
+    const [h, p, f] = (await tokenDe('ana')).split('.');
+    const falso = { ...JSON.parse(Buffer.from(p, 'base64url').toString()), rol: 'admin' };
+    const trucado = `${h}.${Buffer.from(JSON.stringify(falso)).toString('base64url')}.${f}`;
+    const r = await api('GET', '/api/jwt/reporte', { token: trucado });
+    return r.status === 401;
+  });
+
+  await prueba('JWT: reporte → alumno 403, admin 200', async () => {
+    const a = await api('GET', '/api/jwt/reporte', { token: await tokenDe('ana') });
+    const b = await api('GET', '/api/jwt/reporte', { token: await tokenDe('admin') });
+    return a.status === 403 && b.status === 200;
+  });
+
+  await prueba('JWT: refresh da otro token (otro jti) que sí sirve', async () => {
+    const viejo = await tokenDe('luis');
+    const nuevo = (await api('POST', '/api/jwt/refresh', { token: viejo })).datos.token;
+    const r = await api('GET', '/api/jwt/sesion', { token: nuevo });
+    return nuevo !== viejo && r.status === 200 && r.datos.usuario === 'luis';
+  });
+
+  await prueba('JWT: tras el logout, el mismo token da 401 y aparece en la lista negra', async () => {
+    const token = await tokenDe('admin');
+    const salir = await api('POST', '/api/jwt/logout', { token });
+    const otraVez = await api('GET', '/api/jwt/perfil', { token });
+    const negra = await api('GET', '/api/diagnostico/tokens');
+    return salir.datos.revocado && otraVez.status === 401 && negra.datos.revocados.some((t) => t.usuario === 'admin');
+  });
+  servJWT.cerrar();
+
+  const servSinNegra = await arrancar({ jwtRevocar: false });
+  await prueba('jwtRevocar=false: el logout no guarda nada y el token sigue sirviendo', async () => {
+    const base = servSinNegra.url;
+    const token = await tokenDe('ana', base);
+    await api('POST', '/api/jwt/logout', { base, token });
+    const r = await api('GET', '/api/jwt/perfil', { base, token });
+    return r.status === 200;
+  });
+  servSinNegra.cerrar();
+
+  const servCorto = await arrancar({ jwtExpiraSeg: 1 });
+  await prueba('jwtExpiraSeg=1: a los 2 segundos el token expiró → 401', async () => {
+    const base = servCorto.url;
+    const token = await tokenDe('ana', base);
+    await esperar(2100);
+    const r = await api('GET', '/api/jwt/perfil', { base, token });
+    return r.status === 401;
+  });
+  servCorto.cerrar();
+
   await pool.end();
 
   console.log(`\n${pasaron} de ${total} pruebas pasaron.`);

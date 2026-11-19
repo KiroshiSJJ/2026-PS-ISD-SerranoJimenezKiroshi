@@ -65,6 +65,39 @@
       <h2>5 · Configuración actual (<code>config.js</code>)</h2>
       <pre id="config">…</pre>
     </section>
+
+    <!-- Tarjeta nueva: JWT. Usa el usuario y la contraseña de la tarjeta 2. -->
+    <section class="tarjeta">
+      <h2>6 · Sesión con JWT</h2>
+      <p id="jwt-estado" class="estado sin-sesion">Sin token</p>
+      <p class="detalle">Aquí no hay cookie: la página guarda el token y lo manda en el encabezado <code>Authorization: Bearer …</code></p>
+      <div class="botones">
+        <button type="button" data-jwt="POST /api/jwt/login">POST /api/jwt/login</button>
+        <button type="button" data-jwt="GET /api/jwt/perfil">GET /api/jwt/perfil</button>
+        <button type="button" data-jwt="GET /api/jwt/reporte">GET /api/jwt/reporte</button>
+        <button type="button" data-jwt="POST /api/jwt/refresh">POST /api/jwt/refresh</button>
+        <button type="button" data-jwt="POST /api/jwt/logout" class="peligro">POST /api/jwt/logout</button>
+        <button type="button" id="jwt-tirar" class="peligro">Tirar el token</button>
+      </div>
+
+      <h3>Elementos de la sesión (dentro del token)</h3>
+      <table>
+        <thead><tr><th>Campo</th><th>Valor</th><th>Qué es</th></tr></thead>
+        <tbody id="jwt-elementos"><tr><td colspan="3">(sin token)</td></tr></tbody>
+      </table>
+      <p class="detalle">El token completo (<code>header.payload.firma</code>):</p>
+      <pre id="jwt-crudo">(sin token)</pre>
+
+      <ol id="jwt-bitacora" class="bitacora" reversed></ol>
+
+      <h3>Lista negra (<code>tokens_revocados</code>)</h3>
+      <p id="jwt-modo" class="estado-almacen">…</p>
+      <table>
+        <thead><tr><th>Token</th><th>Usuario</th><th>Expira</th><th>Revocado</th></tr></thead>
+        <tbody id="jwt-negra"><tr><td colspan="4">(vacía)</td></tr></tbody>
+      </table>
+      <button type="button" id="jwt-ver-negra">Actualizar lista negra</button>
+    </section>
   </main>
 
   <script src="demo.js"></script>

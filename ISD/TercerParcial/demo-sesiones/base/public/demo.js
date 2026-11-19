@@ -2,8 +2,10 @@ const $ = (id) => document.getElementById(id);
 
 // Etapa 1 — Llamar a la API
 
-async function llamar(metodo, url, cuerpo) {
+// JWT: el 4° parámetro es el token. Si viene, va en Authorization (la cookie se manda sola, el token no).
+async function llamar(metodo, url, cuerpo, token) {
   const opciones = { method: metodo, headers: {} };
+  if (token) opciones.headers.Authorization = `Bearer ${token}`;
   if (cuerpo !== undefined) {
     opciones.headers['Content-Type'] = 'application/json';
     opciones.body = JSON.stringify(cuerpo);
@@ -33,7 +35,8 @@ function claseDelCodigo(status) {
 // Se usa prepend para que lo más nuevo quede arriba y no haya que bajar.
 // Todo se mete con textContent y nunca con innerHTML: el JSON puede traer texto escrito por alguien
 // Con innerHTML ese texto se interpretaría como HTML y podría correr un script (XSS)
-function anotar(metodo, url, status, datos) {
+// lista: id de la bitácora donde se escribe (la de la tarjeta 3 por defecto, o la de JWT).
+function anotar(metodo, url, status, datos, lista = 'bitacora') {
   const li = document.createElement('li');
 
   const codigo = document.createElement('span');
@@ -47,7 +50,7 @@ function anotar(metodo, url, status, datos) {
   json.textContent = JSON.stringify(datos, null, 2);
 
   li.append(codigo, ruta, json);
-  $('bitacora').prepend(li);
+  $(lista).prepend(li);
 }
 
 // Llama y anota en un solo paso: es lo que hacen el formulario y los botones.
@@ -162,13 +165,159 @@ document.querySelectorAll('button[data-url]').forEach((boton) => {
 $('btn-refrescar').addEventListener('click', refrescarTodo);
 $('btn-sesiones').addEventListener('click', refrescarTabla);
 
-// Etapa 6 — Al cargar la página
+// Etapa 6 — JWT
+
+// El token vive en sessionStorage: aguanta si recargas, se borra si cierras la pestaña.
+// Ojo: a diferencia de la cookie httpOnly, este SÍ lo puede leer JavaScript.
+const jwtGuardado = {
+  leer: () => sessionStorage.getItem('jwt'),
+  poner: (t) => (t ? sessionStorage.setItem('jwt', t) : sessionStorage.removeItem('jwt')),
+};
+
+// Explicación de cada campo del payload para la tabla de "elementos de la sesión".
+const QUE_ES = {
+  sub: 'id del usuario en la tabla usuarios',
+  usuario: 'nombre de usuario',
+  nombre: 'nombre completo',
+  rol: 'alumno o admin (decide el 403)',
+  iat: 'cuándo se emitió',
+  exp: 'cuándo expira (iat + jwtExpiraSeg)',
+  jti: 'id único del token (se usa en la lista negra)',
+};
+
+// Lee el payload: es la 2ª parte del token, en base64url. Leerlo no necesita el secreto.
+function leerPayload(token) {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const texto = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+    return JSON.parse(texto);
+  } catch {
+    return null;
+  }
+}
+
+// iat / exp vienen en segundos → los muestro como hora.
+const comoHora = (seg) => new Date(seg * 1000).toLocaleTimeString();
+
+// Llena la tabla de elementos con lo que trae el token.
+function pintarElementos(token) {
+  const tbody = $('jwt-elementos');
+  tbody.replaceChildren();
+  const payload = token ? leerPayload(token) : null;
+  if (!payload) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 3;
+    td.textContent = '(sin token)';
+    tr.append(td);
+    tbody.append(tr);
+    return;
+  }
+  for (const [campo, valor] of Object.entries(payload)) {
+    const tr = document.createElement('tr');
+    const mostrar = campo === 'iat' || campo === 'exp' ? `${valor} (${comoHora(valor)})` : valor;
+    for (const texto of [campo, mostrar, QUE_ES[campo] || '']) {
+      const td = document.createElement('td');
+      td.textContent = texto;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+}
+
+// El estado lo decide el SERVIDOR (igual que con la cookie): le pregunto a /api/jwt/sesion.
+async function refrescarJWT() {
+  const token = jwtGuardado.leer();
+  $('jwt-crudo').textContent = token || '(sin token)';
+  pintarElementos(token);
+
+  const estado = $('jwt-estado');
+  if (!token) {
+    estado.textContent = 'Sin token';
+    estado.className = 'estado sin-sesion';
+  } else {
+    const { status, datos } = await llamar('GET', '/api/jwt/sesion', undefined, token);
+    if (status === 200) {
+      estado.textContent = `Token válido: ${datos.nombre} (${datos.rol}) · expira en ${datos.quedanSegundos} s`;
+      estado.className = 'estado con-sesion';
+    } else {
+      // El navegador todavía tiene el token, pero el servidor ya no lo acepta.
+      estado.textContent = `El servidor rechaza el token → ${datos ? datos.error : status}`;
+      estado.className = 'estado sin-sesion';
+    }
+  }
+  await refrescarNegra();
+}
+
+// Lista negra: misma idea que refrescarTabla(), vaciar y volver a llenar.
+async function refrescarNegra() {
+  const { status, datos } = await llamar('GET', '/api/diagnostico/tokens');
+  const tbody = $('jwt-negra');
+  tbody.replaceChildren();
+  if (status !== 200 || !datos) {
+    $('jwt-modo').textContent = `No se pudo leer la lista negra (el servidor responde ${status})`;
+    return;
+  }
+  $('jwt-modo').textContent = datos.jwtRevocar
+    ? 'jwtRevocar: true → el logout manda el token aquí y deja de servir'
+    : 'jwtRevocar: false → el logout no guarda nada; el token sirve hasta que expire';
+
+  if (datos.revocados.length === 0) {
+    agregarFilaVacia(tbody, '(vacía)');
+    return;
+  }
+  const actual = leerPayload(jwtGuardado.leer() || '') || {};
+  for (const t of datos.revocados) {
+    const tr = document.createElement('tr');
+    if (t.jti === actual.jti) tr.className = 'tuya';
+    const celdas = [
+      `${t.jti.slice(0, 8)}…${t.jti === actual.jti ? ' (el tuyo)' : ''}`,
+      t.usuario,
+      new Date(t.expira).toLocaleTimeString(),
+      new Date(t.revocado_en).toLocaleTimeString(),
+    ];
+    for (const texto of celdas) {
+      const td = document.createElement('td');
+      td.textContent = texto;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+}
+
+// Botones de JWT: data-jwt trae "MÉTODO /ruta".
+document.querySelectorAll('button[data-jwt]').forEach((boton) => {
+  boton.addEventListener('click', async () => {
+    const [metodo, url] = boton.dataset.jwt.split(' ');
+    // El login manda usuario y contraseña de la tarjeta 2; los demás mandan el token guardado.
+    const cuerpo = url === '/api/jwt/login'
+      ? { usuario: $('usuario').value, contrasena: $('contrasena').value }
+      : undefined;
+    const { status, datos } = await llamar(metodo, url, cuerpo, jwtGuardado.leer());
+    anotar(metodo, url, status, datos, 'jwt-bitacora');
+    // login y refresh regresan un token nuevo: lo guardo (en refresh reemplaza al anterior).
+    if (status === 200 && datos && datos.token) jwtGuardado.poner(datos.token);
+    await refrescarJWT();
+  });
+});
+
+// Tirar el token solo lo borra del navegador. El servidor no se entera: por eso existe el logout.
+$('jwt-tirar').addEventListener('click', async () => {
+  jwtGuardado.poner(null);
+  anotar('—', '(navegador)', '—', { mensaje: 'Token borrado de sessionStorage; el servidor no se enteró' }, 'jwt-bitacora');
+  await refrescarJWT();
+});
+
+$('jwt-ver-negra').addEventListener('click', refrescarNegra);
+
+// Etapa 7 — Al cargar la página
 
 // Mostramos la configuración para saber con qué opciones está corriendo el servidor en cada prueba
 async function iniciar() {
   const { datos } = await llamar('GET', '/api/config');
   $('config').textContent = JSON.stringify(datos, null, 2);
   await refrescarTodo();
+  await refrescarJWT(); // JWT: también la tarjeta 6
 }
 
 iniciar();
